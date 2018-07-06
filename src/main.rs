@@ -1,5 +1,3 @@
-#![allow(usused_must_use)]
-
 extern crate clap;
 
 use clap::{Arg, App};
@@ -8,6 +6,7 @@ use std::fs::File;
 use std::io::prelude::*;
 
 fn main() {
+
     let matches = App::new("brainfuck")
         .version("1.0")
         .about("Brainfuck interpreter")
@@ -49,24 +48,21 @@ fn main() {
         }
     }
 
-    println!("Memory size is {} bytes", memory_size);
-
     // Initialize memory
-    let memory: Vec<i8> = vec![0; memory_size];
-    let mut program = String::new();
+    let mut memory: Vec<u8> = vec![0; memory_size];
 
     //Parse file path or source code
     if matches.is_present("file") {
         let path = matches.value_of("file").unwrap().to_string();
-        program = read_from_file(path);
+        let program = read_from_file(path);
+        interpret(program, &mut memory);
     }else if matches.is_present("program") {
-        program = matches.value_of("program").unwrap().to_string();
+        let program = matches.value_of("program").unwrap().to_string();
+        interpret(program, &mut memory);
     } else {
         println!("Program must be provided from either a file or source.");
         exit(1);
     }
-
-    interpret(program, &memory);
 
 }
 
@@ -74,31 +70,97 @@ fn read_from_file(path: String) -> String {
     println!("Opening file {}", path);
     let mut file = File::open(path).unwrap();
     let mut content = String::new();
-    file.read_to_string(&mut content);
-    
+    file.read_to_string(&mut content).unwrap();
     content.trim().to_string()
 }
 
+fn interpret(program: String, memory: &mut Vec<u8>){
+    let program = program.as_bytes();
+    let mut brackets = Vec::<(usize,usize)>::new();
+    let mut program_counter = 0;
+    let mut memory_pointer = 0;
 
-fn exit_with_message(message: &str){
-    println!("{}",message);
-    exit(1);
-}
-
-fn interpret(program: String, memory: &Vec<i8>){
-    let bytes = program.as_bytes();
-    let mut counter = 0;
-    for i in 0..bytes.len() {
-        match bytes[i] {
-            b'<' => println!("<"),
-            b'>' => println!(">"),
-            b'[' => println!("["),
-            b']' => println!("]"),
-            b'+' => println!("+"),
-            b'-' => println!("-"),
-            b'.' => println!("."),
-            b',' => println!(","),
-            _ => {}
-        }
+    for (index,&token) in program.iter().enumerate() {
+        if token == b'[' {
+            let mut end_pos = index;
+            let mut counter = 1;
+            while counter > 0 {
+                end_pos += 1;
+                match program[end_pos] {
+                    b'[' => counter += 1,
+                    b']' => counter -= 1,
+                    _ => {}
+                };
+            };
+            brackets.push((index, end_pos));
+        };
     }
+
+    loop {
+        match program[program_counter] {
+            b'<' => {
+                memory_pointer -= 1;
+                program_counter += 1;
+            },
+            b'>' => {
+                memory_pointer += 1;
+                program_counter += 1;
+            },
+            b'[' => {
+                if memory[memory_pointer] == 0 {
+                    // skip past matching ending bracket
+                    let &(_, position) = brackets
+                        .iter()
+                        .filter(|x| x.0 == program_counter)
+                        .next()
+                        .unwrap();
+                    program_counter = position;
+                }
+                program_counter += 1;
+            },
+            b']' => {
+                if memory[memory_pointer] != 0 {
+                    // jump to the begining of the loop
+                    let &(position,_) = brackets
+                        .iter()
+                        .filter(|x| x.1 == program_counter)
+                        .next()
+                        .unwrap();
+                    program_counter = position;
+                } else {
+                    program_counter += 1;
+                };
+            },
+            b'+' => {
+                memory[memory_pointer] += 1;
+                program_counter += 1;
+            },
+            b'-' => {
+                memory[memory_pointer] -= 1;
+                program_counter += 1;
+            },
+            b'.' => {
+                print!("{}", memory[memory_pointer] as char);
+                program_counter += 1;
+            },
+            b',' => {
+                memory[memory_pointer] = std::io::stdin()
+                    .bytes()
+                    .next()
+                    .and_then(|result| result.ok())
+                    .map(|byte| byte as u8)
+                    .unwrap();
+                program_counter += 1;
+            },
+            _ => {
+                break;
+            }
+        }
+
+        if program_counter >= program.len(){
+            break;
+        }
+
+    }
+    println!("");
 }
