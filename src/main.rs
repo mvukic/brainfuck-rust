@@ -1,12 +1,12 @@
 extern crate clap;
 
-use clap::{Arg, App};
-use std::process::exit;
 use std::fs::File;
 use std::io::prelude::*;
+use std::process::exit;
+
+use clap::{App, Arg};
 
 fn main() {
-
     let matches = App::new("brainfuck")
         .version("1.0")
         .about("Brainfuck interpreter")
@@ -56,14 +56,13 @@ fn main() {
         let path = matches.value_of("file").unwrap().to_string();
         let program = read_from_file(path);
         interpret(program, &mut memory);
-    }else if matches.is_present("program") {
+    } else if matches.is_present("program") {
         let program = matches.value_of("program").unwrap().to_string();
         interpret(program, &mut memory);
     } else {
         println!("Program must be provided from either a file or source.");
         exit(1);
     }
-
 }
 
 fn read_from_file(path: String) -> String {
@@ -74,13 +73,13 @@ fn read_from_file(path: String) -> String {
     content.trim().to_string()
 }
 
-fn interpret(program: String, memory: &mut Vec<u8>){
+fn interpret(program: String, memory: &mut Vec<u8>) {
     let program = program.as_bytes();
-    let mut brackets = Vec::<(usize,usize)>::new();
+    let mut brackets = Vec::<(usize, usize)>::new();
     let mut program_counter = 0;
     let mut memory_pointer = 0;
 
-    for (index,&token) in program.iter().enumerate() {
+    for (index, &token) in program.iter().enumerate() {
         if token == b'[' {
             let mut end_pos = index;
             let mut counter = 1;
@@ -101,11 +100,11 @@ fn interpret(program: String, memory: &mut Vec<u8>){
             b'<' => {
                 memory_pointer -= 1;
                 program_counter += 1;
-            },
+            }
             b'>' => {
                 memory_pointer += 1;
                 program_counter += 1;
-            },
+            }
             b'[' => {
                 if memory[memory_pointer] == 0 {
                     // skip past matching ending bracket
@@ -117,11 +116,11 @@ fn interpret(program: String, memory: &mut Vec<u8>){
                     program_counter = position;
                 }
                 program_counter += 1;
-            },
+            }
             b']' => {
                 if memory[memory_pointer] != 0 {
                     // jump to the begining of the loop
-                    let &(position,_) = brackets
+                    let &(position, _) = brackets
                         .iter()
                         .filter(|x| x.1 == program_counter)
                         .next()
@@ -130,19 +129,19 @@ fn interpret(program: String, memory: &mut Vec<u8>){
                 } else {
                     program_counter += 1;
                 };
-            },
+            }
             b'+' => {
                 memory[memory_pointer] += 1;
                 program_counter += 1;
-            },
+            }
             b'-' => {
                 memory[memory_pointer] -= 1;
                 program_counter += 1;
-            },
+            }
             b'.' => {
                 print!("{}", memory[memory_pointer] as char);
                 program_counter += 1;
-            },
+            }
             b',' => {
                 memory[memory_pointer] = std::io::stdin()
                     .bytes()
@@ -151,16 +150,15 @@ fn interpret(program: String, memory: &mut Vec<u8>){
                     .map(|byte| byte as u8)
                     .unwrap();
                 program_counter += 1;
-            },
+            }
             _ => {
                 break;
             }
         }
 
-        if program_counter >= program.len(){
+        if program_counter >= program.len() {
             break;
         }
-
     }
-    println!("");
+    println!();
 }
